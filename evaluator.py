@@ -7,19 +7,19 @@ def run_evaluation(dataset_path, model_choice, limit=50):
     results = []
     y_true, y_pred = [], []
 
-    # Load dataset
-    with open(dataset_path, "r") as f:
+    with open(dataset_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
     for line in lines[:limit]:
         sample = json.loads(line)
-        text = sample["text"]
-        label = sample["label"]  # ground truth
+        text = sample["input"]
+        label = sample["label"]
 
         prediction = query_gpt(text, model_choice=model_choice)
 
         results.append({
-            "text": text,
+            "task": sample.get("task", ""),
+            "text": text[:200] + "...",  # truncate for readability
             "label": label,
             "prediction": prediction
         })
@@ -27,10 +27,9 @@ def run_evaluation(dataset_path, model_choice, limit=50):
         y_true.append(label)
         y_pred.append(prediction)
 
-    # Generate classification report
-    if len(set(y_true)) > 1:  # avoid errors if only 1 class
+    if len(set(y_true)) > 1:
         report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
     else:
-        report = {"error": "No labeled data to evaluate"}
+        report = {"error": "Only one class present in dataset"}
 
     return pd.DataFrame(results), report
