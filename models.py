@@ -2,37 +2,42 @@ import os
 import openai
 from transformers import pipeline
 
+# OpenAI client (needs OPENAI_API_KEY in env)
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Load Hugging Face models only when needed
-mistral = None
-llama = None
+# Hugging Face models (lazy init so we don’t load all at once)
+hf_pipelines = {}
 
-def query_model(prompt, backend="openai", model="gpt-4o-mini"):
-    global mistral, llama
+def query_openai(prompt, model="gpt-4o-mini"):
+    """Query OpenAI chat models"""
+    response = openai.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": "You are a cybersecurity classifier. Output only 'benign' or 'malicious'."},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    return response.choices[0].message.content.strip().lower()
 
-    if backend == "openai":
-        response = openai.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "Classify cybersecurity inputs"},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0
-        )
-        return response.choices[0].message.content.strip().lower()
+def query_hf(prompt, model_name):
+    """Query Hugging Face models with transformers pipeline"""
+    if model_name not in hf_pipelines:
+        hf_pipelines[model_name] = pipeline("text-classification", model=model_name, device=-1)  # CPU
+    classifier = hf_pipelines[model_name]
+    out = classifier(prompt, truncation=True)[0]
+    return out["label"].lower()
 
-    elif backend == "mistral":
-        if mistral is None:
-            mistral = pipeline("text-generation", model="mistralai/Mistral-7B-Instruct-v0.2")
-        out = mistral(prompt, max_new_tokens=50)[0]["generated_text"]
-        return "malicious" if "malicious" in out.lower() else "benign"
-
-    elif backend == "llama":
-        if llama is None:
-            llama = pipeline("text-generation", model="meta-llama/Llama-2-7b-chat-hf")
-        out = llama(prompt, max_new_tokens=50)[0]["generated_text"]
-        return "malicious" if "malicious" in out.lower() else "benign"
-
+def query_model(prompt, model_choice="gpt-4o-mini"):
+    """
+    Unified interface:
+    - OpenAI: "gpt-4o-mini"
+    - HF: "mistral", "llama"
+    """
+    if model_choice == "gpt-4o-mini":
+        return query_openai(prompt, "gpt-4o-mini")
+    elif model_choice == "mistral":
+        return query_hf(prompt, "mistralai/Mistral-7B-Instruct-v0.3")
+    elif model_choice == "llama":
+        return query_hf(prompt, "meta-llama/Meta-Llama-3-8B-Instruct")
     else:
-        return "unknown"
+        raise ValueError(f"Unknown model choice: {model_choice}")
