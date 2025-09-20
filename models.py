@@ -1,43 +1,53 @@
 import os
-import openai
 from transformers import pipeline
 
-# OpenAI client (needs OPENAI_API_KEY in env)
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# Hugging Face models (lazy init so we don’t load all at once)
+# Cache Hugging Face pipelines
 hf_pipelines = {}
 
-def query_openai(prompt, model="gpt-4o-mini"):
-    """Query OpenAI chat models"""
-    response = openai.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a cybersecurity classifier. Output only 'benign' or 'malicious'."},
-            {"role": "user", "content": prompt},
-        ],
-    )
-    return response.choices[0].message.content.strip().lower()
-
 def query_hf(prompt, model_name):
-    """Query Hugging Face models with transformers pipeline"""
+    """
+    Query a Hugging Face model safely.
+    Supports both classification models and LLMs.
+    """
     if model_name not in hf_pipelines:
-        hf_pipelines[model_name] = pipeline("text-classification", model=model_name, device=-1)  # CPU
-    classifier = hf_pipelines[model_name]
-    out = classifier(prompt, truncation=True)[0]
-    return out["label"].lower()
+        hf_token = os.getenv("HF_TOKEN")
 
-def query_model(prompt, model_choice="gpt-4o-mini"):
+        # Detect pipeline type automatically
+        if any(x in model_name.lower() for x in ["distilbert", "bert", "roberta", "classifier"]):
+            task = "text-classification"
+        else:
+            task = "text-generation"
+
+        hf_pipelines[model_name] = pipeline(
+            task,
+            model=model_name,
+            device=-1,     # Force CPU (Streamlit Cloud has no GPU)
+            token=hf_token
+        )
+
+    # Run inference
+    if hf_pipelines[model_name].task == "text-classification":
+        outputs = hf_pipelines[model_name](prompt)
+        return outputs[0]["label"]
+
+    else:  # text-generation
+        outputs = hf_pipelines[model_name](prompt, max_new_tokens=128)
+        return outputs[0]["generated_text"]
+
+
+def query_model(prompt, model_choice="mistral"):
     """
-    Unified interface:
-    - OpenAI: "gpt-4o-mini"
-    - HF: "mistral", "llama"
+    High-level interface for supported models.
     """
-    if model_choice == "gpt-4o-mini":
-        return query_openai(prompt, "gpt-4o-mini")
-    elif model_choice == "mistral":
+    if model_choice == "mistral":
         return query_hf(prompt, "mistralai/Mistral-7B-Instruct-v0.3")
+
     elif model_choice == "llama":
         return query_hf(prompt, "meta-llama/Meta-Llama-3-8B-Instruct")
+
+    elif model_choice == "classifier":
+        return query_hf(prompt, "distilbert-base-uncased-finetuned-sst-2-english")
+
     else:
-        raise ValueError(f"Unknown model choice: {model_choice}")
+        raise ValueError(f"Unknown model_choice: {model_choice}")
+
