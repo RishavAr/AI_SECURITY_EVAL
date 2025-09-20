@@ -5,3 +5,4 @@ matplotlib
 openai
 transformers
 torch
+huggingface_hub
