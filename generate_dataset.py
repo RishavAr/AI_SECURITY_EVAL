@@ -4,33 +4,37 @@ from pathlib import Path
 from tqdm import tqdm
 
 # Paths
-PAYLOADS_PATH = Path("/Users/rishavaryan/Downloads/PayloadsAllTheThings")  # update if needed
+PAYLOADS_PATH = Path("/Users/rishavaryan/Downloads/PayloadsAllTheThings")  # update path if needed
 OUTPUT_FILE = "datasets/cyberevalbench.jsonl"
 
 def generate_dataset():
     samples = []
     malicious_count = 0
 
-    # Step 1: Collect malicious payloads
+    # Step 1: Collect malicious payloads from ALL file types
     for root, _, files in os.walk(PAYLOADS_PATH):
         for f in files:
-            if f.endswith(".md"):
-                try:
-                    with open(os.path.join(root, f), "r", encoding="utf-8", errors="ignore") as infile:
-                        content = infile.read().strip()
-                        if content:
-                            samples.append({
-                                "task": Path(root).name,
-                                "input": content,
-                                "label": "malicious"
-                            })
-                            malicious_count += 1
-                except Exception as e:
-                    print(f" Skipping {f}: {e}")
+            if f.startswith("."):  # skip hidden files like .gitignore
+                continue
+            if f.endswith((".png", ".jpg", ".jpeg", ".gif", ".svg")):  # skip images
+                continue
+
+            try:
+                with open(os.path.join(root, f), "r", encoding="utf-8", errors="ignore") as infile:
+                    content = infile.read().strip()
+                    if content:
+                        samples.append({
+                            "task": Path(root).name,   # folder name = vulnerability category
+                            "input": content,
+                            "label": "malicious"
+                        })
+                        malicious_count += 1
+            except Exception as e:
+                print(f"Skipping {f}: {e}")
 
     print(f"Collected {malicious_count} malicious samples")
 
-    # Step 2: Generate benign samples (balanced)
+    # Step 2: Add benign samples (balanced with malicious count)
     benign_base = [
         "System is operating normally with no anomalies.",
         "Database queries executed successfully.",
@@ -61,7 +65,7 @@ def generate_dataset():
         for s in samples:
             outfile.write(json.dumps(s) + "\n")
 
-    print(f" Dataset generated with {len(samples)} samples → {OUTPUT_FILE}")
+    print(f" Dataset generated with {len(samples)} total samples → {OUTPUT_FILE}")
 
 if __name__ == "__main__":
     generate_dataset()
