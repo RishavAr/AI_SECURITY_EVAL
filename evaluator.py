@@ -2,34 +2,34 @@ import json
 from sklearn.metrics import classification_report
 from models import query_model
 
-def run_evaluation(dataset_path, model_choice="classifier", limit=50):
+def run_evaluation(dataset_path, model_choice="openai", limit=50):
+    """
+    Run evaluation on a JSONL dataset.
+    """
     results = []
-    labels = []
-    preds = []
+    y_true, y_pred = [], []
 
-    # Load dataset
     with open(dataset_path, "r") as f:
-        data = [json.loads(line) for line in f]
+        for i, line in enumerate(f):
+            if limit and i >= limit:
+                break
+            item = json.loads(line)
+            text, label = item["input"], item["label"]
 
-    for item in data[:limit]:
-        #  Ensure text is a clean string
-        text = str(item.get("input", ""))
-        label = str(item.get("label", ""))
+            prediction = query_model(text, model_choice=model_choice)
+            y_true.append(label.lower())
+            y_pred.append(prediction.lower())
 
-        prediction = query_model(text, model_choice=model_choice)
+            results.append({
+                "text": text,
+                "label": label,
+                "prediction": prediction
+            })
 
-        results.append({
-            "text": text,
-            "label": label,
-            "prediction": prediction
-        })
-
-        labels.append(label)
-        preds.append(prediction)
-
-    #  Handle empty labels gracefully
-    if not labels or not preds:
+    if not y_true:
         return results, {"error": "No labeled data to evaluate"}
 
-    report = classification_report(labels, preds, output_dict=True, zero_division=0)
+    report = classification_report(
+        y_true, y_pred, output_dict=True, zero_division=0
+    )
     return results, report
