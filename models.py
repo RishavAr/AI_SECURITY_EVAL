@@ -1,24 +1,35 @@
-import json
-from sklearn.metrics import classification_report, accuracy_score
-from models import query_gpt
+import os
+from openai import OpenAI
 
-def run_evaluation(dataset_path="datasets/cyberevalbench.jsonl", model_choice="gpt-4o-mini", limit=100):
-    results, y_true, y_pred = [], [], []
+# Load API key from Streamlit secrets or environment
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-    with open(dataset_path, "r", encoding="utf-8") as infile:
-        for i, line in enumerate(infile):
-            if i >= limit:
-                break
-            item = json.loads(line)
-            text, label = item["input"], item["label"]
+def query_openai(prompt, model="gpt-4o-mini"):
+    """
+    Query OpenAI chat models for classification.
+    """
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Classify input as 'benign' or 'malicious'. Respond with one word only."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0
+        )
+        return response.choices[0].message.content.strip().lower()
+    except Exception as e:
+        return f"error: {str(e)}"
 
-            prediction = query_gpt(text, model_choice=model_choice)
-
-            y_true.append(label)
-            y_pred.append(prediction)
-            results.append({"input": text, "true": label, "pred": prediction})
-
-    report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
-    acc = accuracy_score(y_true, y_pred)
-
-    return results, {"classification_report": report, "accuracy": acc}
+def query_model(text, model_choice="openai"):
+    """
+    Dispatch to the correct model.
+    """
+    if model_choice == "openai":
+        return query_openai(text, "gpt-4o-mini")
+    elif model_choice == "gpt4o":
+        return query_openai(text, "gpt-4o")
+    elif model_choice == "gpt35":
+        return query_openai(text, "gpt-3.5-turbo")
+    else:
+        return "benign"  # fallback
