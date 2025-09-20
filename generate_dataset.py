@@ -9,6 +9,7 @@ OUTPUT_FILE = "datasets/cyberevalbench.jsonl"
 def generate_dataset():
     samples = []
     
+    # Traverse PayloadsAllTheThings repo
     for root, dirs, files in os.walk(PAYLOADS_PATH):
         for f in files:
             if f.endswith(".md"):
@@ -21,7 +22,7 @@ def generate_dataset():
                         "label": "malicious"
                     })
 
-    # Add benign samples
+    # Add benign samples (few safe sentences)
     benign_texts = [
         "Hello world, this is a safe message.",
         "The quick brown fox jumps over the lazy dog.",
@@ -36,6 +37,7 @@ def generate_dataset():
             "label": "benign"
         })
 
+    # Save dataset
     with open(OUTPUT_FILE, "w", encoding="utf-8") as outfile:
         for s in samples:
             outfile.write(json.dumps(s) + "\n")
