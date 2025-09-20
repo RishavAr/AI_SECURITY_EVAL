@@ -1,7 +1,7 @@
 import os
 import json
 from pathlib import Path
-from tqdm import tqdm  # progress bar
+from tqdm import tqdm
 
 # Paths
 PAYLOADS_PATH = Path("/Users/rishavaryan/Downloads/PayloadsAllTheThings")  # update if needed
@@ -9,10 +9,10 @@ OUTPUT_FILE = "datasets/cyberevalbench.jsonl"
 
 def generate_dataset():
     samples = []
-
-    # Step 1: Collect malicious samples
     malicious_count = 0
-    for root, dirs, files in os.walk(PAYLOADS_PATH):
+
+    # Step 1: Collect malicious payloads
+    for root, _, files in os.walk(PAYLOADS_PATH):
         for f in files:
             if f.endswith(".md"):
                 try:
@@ -20,17 +20,17 @@ def generate_dataset():
                         content = infile.read().strip()
                         if content:
                             samples.append({
-                                "task": Path(root).name,   # e.g. sql_injection
+                                "task": Path(root).name,
                                 "input": content,
                                 "label": "malicious"
                             })
                             malicious_count += 1
                 except Exception as e:
-                    print(f"Skipping {f} due to error: {e}")
+                    print(f" Skipping {f}: {e}")
 
     print(f"Collected {malicious_count} malicious samples")
 
-    # Step 2: Generate benign samples (equal number to malicious)
+    # Step 2: Generate benign samples (balanced)
     benign_base = [
         "System is operating normally with no anomalies.",
         "Database queries executed successfully.",
@@ -48,7 +48,7 @@ def generate_dataset():
     for i in tqdm(range(malicious_count), desc="Generating benign"):
         benign_samples.append({
             "task": "benign_text",
-            "input": benign_base[i % len(benign_base)],  # cycle through base list
+            "input": benign_base[i % len(benign_base)],
             "label": "benign"
         })
 
@@ -61,7 +61,7 @@ def generate_dataset():
         for s in samples:
             outfile.write(json.dumps(s) + "\n")
 
-    print(f" Dataset generated with {len(samples)} total samples → {OUTPUT_FILE}")
+    print(f" Dataset generated with {len(samples)} samples → {OUTPUT_FILE}")
 
 if __name__ == "__main__":
     generate_dataset()
