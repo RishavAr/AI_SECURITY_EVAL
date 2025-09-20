@@ -10,23 +10,23 @@ OUTPUT_FILE = "datasets/cyberevalbench.jsonl"
 def generate_dataset():
     samples = []
 
-    # Collect all malicious samples
-    for root, dirs, files in os.walk(PAYLOADS_PATH):
+    # Collect malicious samples from PayloadsAllTheThings
+    for root, _, files in os.walk(PAYLOADS_PATH):
         for f in files:
             if f.endswith(".md"):
                 with open(os.path.join(root, f), "r", encoding="utf-8", errors="ignore") as infile:
                     content = infile.read().strip()
-                    if not content:
-                        continue
-                    samples.append({
-                        "task": Path(root).name,   # e.g., sql_injection
-                        "input": content,
-                        "label": "malicious"
-                    })
+                    if content:
+                        samples.append({
+                            "task": Path(root).name,
+                            "input": content,
+                            "label": "malicious"
+                        })
 
-    print(f"Collected {len(samples)} malicious samples")
+    malicious_count = len(samples)
+    print(f"Collected {malicious_count} malicious samples")
 
-    # Generate benign samples (scale up to balance malicious count)
+    # Generate benign samples (balanced 1:1)
     benign_base = [
         "System is operating normally with no anomalies.",
         "Database queries executed successfully.",
@@ -40,25 +40,18 @@ def generate_dataset():
         "No security issues detected in this process."
     ]
 
-    malicious_count = sum(1 for s in samples if s["label"] == "malicious")
-    benign_needed = malicious_count  # balance 1:1
-
-    benign_samples = []
-    for _ in range(benign_needed):
-        text = random.choice(benign_base)
-        benign_samples.append({
-            "task": "benign_text",
-            "input": text,
-            "label": "benign"
-        })
+    benign_samples = [{
+        "task": "benign_text",
+        "input": random.choice(benign_base),
+        "label": "benign"
+    } for _ in range(malicious_count)]
 
     print(f"Generated {len(benign_samples)} benign samples")
 
-    # Combine datasets
+    # Combine and shuffle
     full_dataset = samples + benign_samples
     random.shuffle(full_dataset)
 
-    # Save
     os.makedirs("datasets", exist_ok=True)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as outfile:
         for s in full_dataset:
