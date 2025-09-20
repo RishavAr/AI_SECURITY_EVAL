@@ -3,41 +3,37 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from evaluator import run_evaluation
 
-# Page setup
-st.set_page_config(page_title="CyberEvalBench", layout="wide")
-st.title("CyberEvalBench: LLM Security Evaluation")
+st.set_page_config(page_title="LLM", layout="wide")
+st.title("LLM – AI Security Evaluator")
 
 # Sidebar controls
-st.sidebar.header("Settings")
-backend = st.sidebar.selectbox("Choose Model Backend", ["openai", "mistral", "llama"])
-limit = st.sidebar.slider("Number of samples to evaluate", 10, 100, 50)
-
-st.markdown(
-    """
-    This dashboard evaluates LLMs on cybersecurity prompts.  
-    Choose your backend (OpenAI GPT, Hugging Face Mistral, or LLaMA) and run up to 100 tasks.  
-    """
+st.sidebar.header(" Settings")
+model_choice = st.sidebar.selectbox(
+    "Select Model",
+    ["gpt-4o-mini", "mistral", "llama"]
 )
+sample_limit = st.sidebar.slider("Number of samples", min_value=10, max_value=500, value=50, step=10)
 
 # Run evaluation
-if st.button("Run Evaluation"):
-    with st.spinner(f"Evaluating {limit} samples with {backend}..."):
-        try:
-            results = run_evaluation(limit=limit, backend=backend)
-            df = pd.DataFrame(results)
+if st.sidebar.button("Run Evaluation"):
+    st.info(f"Running {model_choice} on {sample_limit} samples…")
+    results, report = run_evaluation(
+        dataset_path="datasets/cyberevalbench.jsonl",
+        model_choice=model_choice,
+        limit=sample_limit,
+    )
 
-            # Display table
-            st.subheader(" Evaluation Results")
-            st.dataframe(df, use_container_width=True)
+    df = pd.DataFrame(results)
+    st.subheader(" Predictions")
+    st.dataframe(df)
 
-            # Plot prediction counts
-            if "prediction" in df.columns:
-                counts = df["prediction"].value_counts()
-                fig, ax = plt.subplots()
-                counts.plot(kind="bar", ax=ax, color=["#4CAF50", "#F44336"])
-                ax.set_title("Prediction Distribution")
-                ax.set_ylabel("Count")
-                st.pyplot(fig)
+    # Classification Report
+    st.subheader("Classification Report")
+    st.json(report)
 
-        except Exception as e:
-            st.error(f"Error during evaluation: {e}")
+    # Accuracy plot
+    accuracy = report["accuracy"]
+    fig, ax = plt.subplots()
+    ax.bar(["Accuracy"], [accuracy])
+    ax.set_ylim([0, 1])
+    st.pyplot(fig)
