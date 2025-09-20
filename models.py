@@ -1,16 +1,14 @@
-import openai
+import os
+from openai import OpenAI
 
-def normalize_label(output: str) -> str:
-    """Force GPT outputs into {malicious, benign} only."""
-    output = output.strip().lower()
-    if "malicious" in output:
-        return "malicious"
-    if "benign" in output:
-        return "benign"
-    return "benign"  # default fallback
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def query_gpt(prompt: str, model_choice: str) -> str:
-    if model_choice == "gpt3.5":
+def query_gpt(prompt, model_choice="gpt-4o-mini"):
+    """
+    Query OpenAI GPT models for classification.
+    Only supports: gpt35, gpt4o, gpt4omini
+    """
+    if model_choice == "gpt35":
         model = "gpt-3.5-turbo"
     elif model_choice == "gpt4o":
         model = "gpt-4o"
@@ -19,22 +17,13 @@ def query_gpt(prompt: str, model_choice: str) -> str:
     else:
         raise ValueError("Unsupported GPT model selected.")
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model=model,
         messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a cybersecurity evaluator. "
-                    "Classify inputs strictly as 'malicious' or 'benign'. "
-                    "Return only one word: malicious OR benign."
-                )
-            },
-            {"role": "user", "content": prompt},
+            {"role": "system", "content": "You are a security classifier. Label text as 'benign' or 'malicious'."},
+            {"role": "user", "content": prompt}
         ],
-        temperature=0,
-        max_tokens=5
+        temperature=0
     )
 
-    raw_output = response["choices"][0]["message"]["content"]
-    return normalize_label(raw_output)
+    return response.choices[0].message.content.strip().lower()
