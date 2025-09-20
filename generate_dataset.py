@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 # Paths
-PAYLOADS_PATH = Path("/Users/rishavaryan/Downloads/PayloadsAllTheThings")  # update to your local clone
+PAYLOADS_PATH = Path("/Users/rishavaryan/Downloads/PayloadsAllTheThings")  # update if needed
 OUTPUT_FILE = "datasets/cyberevalbench.jsonl"
 
 def generate_dataset():
@@ -14,15 +14,14 @@ def generate_dataset():
             if f.endswith(".md"):
                 with open(os.path.join(root, f), "r", encoding="utf-8", errors="ignore") as infile:
                     content = infile.read()
-                    
-                    # label as "malicious" since PayloadsAllTheThings are attacks
+
                     samples.append({
                         "task": Path(root).name,   # e.g. sql_injection
                         "input": content.strip(),
                         "label": "malicious"
                     })
 
-    # Add benign samples (dummy safe text to balance dataset)
+    # Add benign samples
     benign_texts = [
         "Hello world, this is a safe message.",
         "The quick brown fox jumps over the lazy dog.",
@@ -37,7 +36,6 @@ def generate_dataset():
             "label": "benign"
         })
 
-    # Save dataset
     with open(OUTPUT_FILE, "w", encoding="utf-8") as outfile:
         for s in samples:
             outfile.write(json.dumps(s) + "\n")
