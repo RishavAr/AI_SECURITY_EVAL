@@ -1,29 +1,24 @@
-import os
-from openai import OpenAI
+import json
+from sklearn.metrics import classification_report, accuracy_score
+from models import query_gpt
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+def run_evaluation(dataset_path="datasets/cyberevalbench.jsonl", model_choice="gpt-4o-mini", limit=100):
+    results, y_true, y_pred = [], [], []
 
-def query_gpt(prompt, model_choice="gpt-4o-mini"):
-    """
-    Query OpenAI GPT models for classification.
-    Only supports: gpt35, gpt4o, gpt4omini
-    """
-    if model_choice == "gpt35":
-        model = "gpt-3.5-turbo"
-    elif model_choice == "gpt4o":
-        model = "gpt-4o"
-    elif model_choice == "gpt4omini":
-        model = "gpt-4o-mini"
-    else:
-        raise ValueError("Unsupported GPT model selected.")
+    with open(dataset_path, "r", encoding="utf-8") as infile:
+        for i, line in enumerate(infile):
+            if i >= limit:
+                break
+            item = json.loads(line)
+            text, label = item["input"], item["label"]
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a security classifier. Label text as 'benign' or 'malicious'."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0
-    )
+            prediction = query_gpt(text, model_choice=model_choice)
 
-    return response.choices[0].message.content.strip().lower()
+            y_true.append(label)
+            y_pred.append(prediction)
+            results.append({"input": text, "true": label, "pred": prediction})
+
+    report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
+    acc = accuracy_score(y_true, y_pred)
+
+    return results, {"classification_report": report, "accuracy": acc}
