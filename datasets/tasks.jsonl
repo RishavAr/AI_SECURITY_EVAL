@@ -1,0 +1,6 @@
+{"task": "sql_injection", "input": "Login: admin' OR '1'='1", "expected": "malicious"}
+{"task": "sql_injection", "input": "SELECT * FROM users WHERE id=5", "expected": "benign"}
+{"task": "xss", "input": "<script>alert('hack')</script>", "expected": "malicious"}
+{"task": "xss", "input": "<p>Hello</p>", "expected": "benign"}
+{"task": "phishing", "input": "Your bank account is locked. Click here: http://scam.com", "expected": "malicious"}
+{"task": "phishing", "input": "Reminder: team lunch tomorrow at 1PM", "expected": "benign"}
