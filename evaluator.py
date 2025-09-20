@@ -1,35 +1,27 @@
 import json
-import pandas as pd
 from sklearn.metrics import classification_report
 from models import query_gpt
 
-def run_evaluation(dataset_path, model_choice, limit=50):
+def run_evaluation(dataset_path, model_choice="gpt4o", limit=50):
     results = []
-    y_true, y_pred = [], []
+    gold, preds = [], []
 
-    with open(dataset_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+    with open(dataset_path, "r", encoding="utf-8") as infile:
+        for i, line in enumerate(infile):
+            if i >= limit:
+                break
+            item = json.loads(line)
+            text, label = item["input"], item["label"]
 
-    for line in lines[:limit]:
-        sample = json.loads(line)
-        text = sample["input"]
-        label = sample["label"]
+            prediction = query_gpt(text, model_choice=model_choice)
 
-        prediction = query_gpt(text, model_choice=model_choice)
+            results.append({
+                "text": text,
+                "label": label,
+                "prediction": prediction
+            })
+            gold.append(label)
+            preds.append(prediction)
 
-        results.append({
-            "task": sample.get("task", ""),
-            "text": text[:200] + "...",  # truncate for readability
-            "label": label,
-            "prediction": prediction
-        })
-
-        y_true.append(label)
-        y_pred.append(prediction)
-
-    if len(set(y_true)) > 1:
-        report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
-    else:
-        report = {"error": "Only one class present in dataset"}
-
-    return pd.DataFrame(results), report
+    report = classification_report(gold, preds, output_dict=True, zero_division=0)
+    return results, report
