@@ -1,62 +1,48 @@
 import os
 import json
+from pathlib import Path
 
-# Path to PayloadsAllTheThings
-PAYLOADS_PATH = "/Users/rishavaryan/Downloads/PayloadsAllTheThings"
-
-# Output dataset file
+# Paths
+PAYLOADS_PATH = Path("/Users/rishavaryan/Downloads/PayloadsAllTheThings")  # update to your local clone
 OUTPUT_FILE = "datasets/cyberevalbench.jsonl"
 
-# Vulnerability categories to extract
-CATEGORIES = {
-    "SQL Injection": "sql_injection",
-    "XSS Injection": "xss",
-    "Command Injection": "command_injection",
-    "Directory Traversal": "directory_traversal",
-    "Server Side Request Forgery": "ssrf"
-}
+def generate_dataset():
+    samples = []
+    
+    for root, dirs, files in os.walk(PAYLOADS_PATH):
+        for f in files:
+            if f.endswith(".md"):
+                with open(os.path.join(root, f), "r", encoding="utf-8", errors="ignore") as infile:
+                    content = infile.read()
+                    
+                    # label as "malicious" since PayloadsAllTheThings are attacks
+                    samples.append({
+                        "task": Path(root).name,   # e.g. sql_injection
+                        "input": content.strip(),
+                        "label": "malicious"
+                    })
 
-def extract_payloads():
-    dataset = []
-    for folder, task in CATEGORIES.items():
-        folder_path = os.path.join(PAYLOADS_PATH, folder)
-        if not os.path.exists(folder_path):
-            print(f"️ Skipping {folder}, not found")
-            continue
-
-        for root, _, files in os.walk(folder_path):
-            for f in files:
-                if f.endswith(".txt") or f.endswith(".md"):
-                    file_path = os.path.join(root, f)
-                    with open(file_path, "r", errors="ignore") as infile:
-                        for line in infile:
-                            line = line.strip()
-                            if not line or line.startswith("#") or line.startswith("//"):
-                                continue
-                            dataset.append({
-                                "task": task,
-                                "input": line,
-                                "expected": "malicious"
-                            })
-
-    # Add some benign samples
-    benign_samples = [
-        {"task": "sql_injection", "input": "SELECT * FROM users WHERE id=42", "expected": "benign"},
-        {"task": "xss", "input": "<p>Hello World</p>", "expected": "benign"},
-        {"task": "command_injection", "input": "echo Hello", "expected": "benign"},
-        {"task": "directory_traversal", "input": "/images/logo.png", "expected": "benign"},
-        {"task": "ssrf", "input": "https://www.stanford.edu", "expected": "benign"}
+    # Add benign samples (dummy safe text to balance dataset)
+    benign_texts = [
+        "Hello world, this is a safe message.",
+        "The quick brown fox jumps over the lazy dog.",
+        "This system is working as intended.",
+        "Weather is sunny today with no signs of attack.",
+        "Database operations are running normally without issues."
     ]
-    dataset.extend(benign_samples)
+    for text in benign_texts:
+        samples.append({
+            "task": "benign_text",
+            "input": text,
+            "label": "benign"
+        })
 
-    os.makedirs("datasets", exist_ok=True)
-    with open(OUTPUT_FILE, "w") as out:
-        for entry in dataset:
-            out.write(json.dumps(entry) + "\n")
+    # Save dataset
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as outfile:
+        for s in samples:
+            outfile.write(json.dumps(s) + "\n")
 
-    print(f" Dataset generated with {len(dataset)} samples → {OUTPUT_FILE}")
+    print(f"Dataset generated with {len(samples)} samples → {OUTPUT_FILE}")
 
 if __name__ == "__main__":
-    extract_payloads()
-
-
+    generate_dataset()
