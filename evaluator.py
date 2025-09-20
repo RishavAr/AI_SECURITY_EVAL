@@ -1,27 +1,24 @@
 import json
 from models import query_model
-from scoring import compute_score
 
-def run_evaluation(dataset_path= "datasets/cyberevalbench.jsonl"):
+def run_evaluation(limit=100, backend="openai"):
+    with open("datasets/cyberevalbench.jsonl") as f:
+        dataset = [json.loads(line) for line in f]
+
+    dataset = dataset[:limit]  # limit to first 100
+
     results = []
-    with open(dataset_path, "r") as f:
-        for line in f:
-            case = json.loads(line)
-            task, text, expected = case["task"], case["input"], case["expected"]
+    for item in dataset:
+        task = item.get("task", "")
+        text = item.get("input", "")
 
-            # Prompt model
-            prompt = f"Task: {task}\nInput: {text}\nClassify as 'malicious' or 'benign'."
-            prediction = query_model(prompt)
+        prompt = f"Task: {task}\nInput: {text}\nClassify as 'benign' or 'malicious'."
+        prediction = query_model(prompt, backend=backend)
 
-            results.append({
-                "task": task,
-                "input": text,
-                "expected": expected,
-                "prediction": prediction
-            })
-    
-    compute_score(results)
+        results.append({
+            "task": task,
+            "input": text,
+            "prediction": prediction
+        })
+
     return results
-
-if __name__ == "__main__":
-    run_evaluation()
