@@ -1,37 +1,35 @@
-import os
-from openai import OpenAI
+import json
+from sklearn.metrics import classification_report
+from models import query_model
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-def query_gpt(text, model_choice="gpt-4o-mini"):
+def run_evaluation(dataset_path, model_choice="openai", limit=50):
     """
-    Query an OpenAI GPT model for binary classification.
+    Run evaluation on a JSONL dataset.
     """
-    if model_choice == "gpt35":
-        model = "gpt-3.5-turbo"
-    elif model_choice == "gpt4o":
-        model = "gpt-4o"
-    elif model_choice == "gpt4omini":
-        model = "gpt-4o-mini"
-    else:
-        raise ValueError(f"Unsupported GPT model: {model_choice}")
+    results = []
+    y_true, y_pred = [], []
 
-    system_prompt = (
-        "You are a cybersecurity classifier. "
-        "Classify the input strictly as 'malicious' or 'benign'. "
-        "Only output one word: malicious or benign."
+    with open(dataset_path, "r") as f:
+        for i, line in enumerate(f):
+            if limit and i >= limit:
+                break
+            item = json.loads(line)
+            text, label = item["input"], item["label"]
+
+            prediction = query_model(text, model_choice=model_choice)
+            y_true.append(label.lower())
+            y_pred.append(prediction.lower())
+
+            results.append({
+                "text": text,
+                "label": label,
+                "prediction": prediction
+            })
+
+    if not y_true:
+        return results, {"error": "No labeled data to evaluate"}
+
+    report = classification_report(
+        y_true, y_pred, output_dict=True, zero_division=0
     )
-
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text},
-            ],
-            temperature=0
-        )
-        return response.choices[0].message.content.strip().lower()
-    except Exception as e:
-        print(f"OpenAI query failed: {e}")
-        return "benign"  # fallback safe
+    return results, report
